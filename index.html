@@ -2,8 +2,68 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
 <title>БАЛТИЙСКИЙ ШТОРМ</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+(() => {
+  const root = document.documentElement;
+  const tg = window.Telegram && window.Telegram.WebApp;
+
+  function updateAppViewport(){
+    const vv = window.visualViewport;
+    const tgHeight = tg && Number(tg.viewportHeight) > 0 ? Number(tg.viewportHeight) : 0;
+    const width = (vv && vv.width) || window.innerWidth || root.clientWidth || 0;
+    const height = tgHeight || (vv && vv.height) || window.innerHeight || root.clientHeight || 0;
+
+    if (width > 0) root.style.setProperty('--app-width', `${Math.floor(width)}px`);
+    if (height > 0) root.style.setProperty('--app-height', `${Math.floor(height)}px`);
+  }
+
+  function initTelegramWebApp(){
+    updateAppViewport();
+
+    if (tg){
+      try { tg.ready(); } catch (err) {}
+      try { tg.expand(); } catch (err) {}
+      try {
+        if (typeof tg.requestFullscreen === 'function') {
+          const fullscreenResult = tg.requestFullscreen();
+          if (fullscreenResult && typeof fullscreenResult.catch === 'function') {
+            fullscreenResult.catch(() => {});
+          }
+        }
+      } catch (err) {}
+      try { tg.setHeaderColor('#000000'); } catch (err) {}
+      try { tg.setBackgroundColor('#000000'); } catch (err) {}
+
+      if (typeof tg.onEvent === 'function'){
+        try { tg.onEvent('viewportChanged', updateAppViewport); } catch (err) {}
+      }
+    }
+
+    updateAppViewport();
+    setTimeout(updateAppViewport, 80);
+    setTimeout(updateAppViewport, 300);
+    setTimeout(updateAppViewport, 1000);
+  }
+
+  window.addEventListener('resize', updateAppViewport, { passive: true });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(updateAppViewport, 80);
+    setTimeout(updateAppViewport, 300);
+  }, { passive: true });
+  if (window.visualViewport){
+    window.visualViewport.addEventListener('resize', updateAppViewport, { passive: true });
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initTelegramWebApp, { once: true });
+  } else {
+    initTelegramWebApp();
+  }
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
@@ -15,25 +75,49 @@
     --ink-dim:#3a6f80;
     --ink-bright:#cfeef7;
     --warn:#e8b56b;
+    --stage-margin:8px;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden;
+  html,body{margin:0;padding:0;width:100%;height:100%;min-height:100vh;background:#000;overflow:hidden;
     font-family:"Silkscreen",ui-monospace,monospace;color:var(--ink);
     -webkit-font-smoothing:none;font-smooth:never;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+  }
+  @supports (height: 100svh){
+    html,body{min-height:100svh}
+  }
+  @supports (height: 100dvh){
+    html,body{min-height:100dvh}
   }
   body{
     display:flex;align-items:center;justify-content:center;
+    width:100vw;
+    width:var(--app-width, 100vw);
+    height:100vh;
+    height:var(--app-height, 100vh);
     background:
       radial-gradient(ellipse at center, #050a14 0%, #000 70%);
     cursor:default;
+  }
+  @supports (height: 100svh){
+    body{height:100svh}
+  }
+  @supports (height: 100dvh){
+    body{height:100dvh}
+  }
+  body{
+    width:var(--app-width, 100vw);
+    height:var(--app-height, 100vh);
   }
 
   /* Stage: 9:16 phone portrait, scales to viewport */
   .stage{
     position:relative;
-    width:min(95vw, calc(96vh * 9/16));
+    width:min(calc(100vw - var(--stage-margin)), calc((100vh - var(--stage-margin)) * 9/16));
     aspect-ratio: 9 / 16;
-    max-height:97vh;
+    max-width:calc(100vw - var(--stage-margin));
+    max-height:calc(100vh - var(--stage-margin));
     /* outer bezel */
     border-radius:14px;
     background:#000;
@@ -45,6 +129,25 @@
       0 30px 80px rgba(0,0,0,.7);
     overflow:hidden;
     isolation:isolate;
+  }
+  @supports (height: 100svh){
+    .stage{
+      width:min(calc(100vw - var(--stage-margin)), calc((100svh - var(--stage-margin)) * 9/16));
+      max-height:calc(100svh - var(--stage-margin));
+    }
+  }
+  @supports (height: 100dvh){
+    .stage{
+      width:min(calc(100vw - var(--stage-margin)), calc((100dvh - var(--stage-margin)) * 9/16));
+      max-height:calc(100dvh - var(--stage-margin));
+    }
+  }
+  .stage{
+    width:min(
+      calc(var(--app-width, 100vw) - var(--stage-margin)),
+      calc((var(--app-height, 100dvh) - var(--stage-margin) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * 9/16)
+    );
+    max-height:calc(var(--app-height, 100dvh) - var(--stage-margin) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
 
   /* The actual pixel buffer — rendered at low res, scaled by CSS */
@@ -168,7 +271,8 @@
   /* on-screen directional buttons (mobile + clickable on desktop) */
   .ctrl{
     position:absolute;z-index:10;
-    bottom:5%;width:30%;max-width:130px;aspect-ratio: 1.4 / 1;
+    bottom:max(4%, calc(env(safe-area-inset-bottom, 0px) + 10px));
+    width:30%;max-width:130px;aspect-ratio: 1.4 / 1;
     display:flex;align-items:center;justify-content:center;
     user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
     color:#9fd8e6;
