@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>БАЛТИЙСКИЙ ШТОРМ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#020409;
+    --ink:#8fd5e6;
+    --ink-dim:#3a6f80;
+    --ink-bright:#cfeef7;
+    --warn:#e8b56b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:#000;overflow:hidden;
+    font-family:"Silkscreen",ui-monospace,monospace;color:var(--ink);
+    -webkit-font-smoothing:none;font-smooth:never;
+  }
+  body{
+    display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(ellipse at center, #050a14 0%, #000 70%);
+    cursor:default;
+  }
+
+  /* Stage: 9:16 phone portrait, scales to viewport */
+  .stage{
+    position:relative;
+    width:min(95vw, calc(96vh * 9/16));
+    aspect-ratio: 9 / 16;
+    max-height:97vh;
+    /* outer bezel */
+    border-radius:14px;
+    background:#000;
+    box-shadow:
+      0 0 0 1px #0a1a26,
+      0 0 0 6px #050d14,
+      0 0 0 7px #142735,
+      0 0 80px rgba(60,140,180,.18),
+      0 30px 80px rgba(0,0,0,.7);
+    overflow:hidden;
+    isolation:isolate;
+  }
+
+  /* The actual pixel buffer — rendered at low res, scaled by CSS */
+  canvas#game{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display:block;
+    background:#02060d;
+  }
+
+  /* CRT overlay layers */
+  .crt-scan{
+    position:absolute;inset:0;pointer-events:none;z-index:5;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0) 0px,
+        rgba(0,0,0,0) 2px,
+        rgba(0,0,0,.22) 2px,
+        rgba(0,0,0,.22) 3px
+      );
+    mix-blend-mode:multiply;
+    opacity:.85;
+  }
+  .crt-vignette{
+    position:absolute;inset:0;pointer-events:none;z-index:6;
+    background:
+      radial-gradient(ellipse at center,
+        rgba(0,0,0,0) 40%,
+        rgba(0,0,0,.55) 85%,
+        rgba(0,0,0,.85) 100%);
+  }
+  .crt-glow{
+    position:absolute;inset:-2%;pointer-events:none;z-index:7;
+    box-shadow:
+      inset 0 0 60px rgba(70,160,200,.10),
+      inset 0 0 180px rgba(20,60,90,.35);
+    border-radius:14px;
+  }
+  .crt-bend{
+    position:absolute;inset:0;pointer-events:none;z-index:8;
+    background:
+      radial-gradient(ellipse 120% 100% at 50% 50%,
+        rgba(255,255,255,.03) 0%,
+        rgba(255,255,255,0) 30%);
+  }
+  .crt-flicker{
+    position:absolute;inset:0;pointer-events:none;z-index:9;
+    background:rgba(120,180,210,.04);
+    animation:flicker 7s steps(1,end) infinite;
+    mix-blend-mode:screen;
+  }
+  @keyframes flicker{
+    0%,96%{opacity:.0}
+    97%{opacity:.6}
+    98%{opacity:.1}
+    99%{opacity:.4}
+    100%{opacity:.0}
+  }
+  .stage.no-crt .crt-scan,
+  .stage.no-crt .crt-vignette,
+  .stage.no-crt .crt-glow,
+  .stage.no-crt .crt-bend,
+  .stage.no-crt .crt-flicker{display:none}
+
+  /* HUD layers (DOM text so it stays crisp) */
+  .hud{
+    position:absolute;inset:0;pointer-events:none;z-index:4;
+    font-family:"Silkscreen",monospace;
+    color:#9fd8e6;
+    text-shadow:0 0 6px rgba(80,180,210,.55), 0 0 1px #001218;
+    letter-spacing:.06em;
+  }
+  .hud .top{
+    position:absolute;top:14px;left:0;right:0;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:0 18px;
+    font-size:12px;
+  }
+  .hud .top .lbl{color:#3f7889;font-size:9px;letter-spacing:.2em;margin-bottom:2px}
+  .hud .top .val{font-size:14px;color:#bfeaf3}
+  .hud .top .right{text-align:right}
+  .hud .center-msg{
+    position:absolute;top:54%;left:0;right:0;text-align:center;
+    transform:translateY(-50%);
+    pointer-events:auto;
+  }
+  .hud .title{
+    font-size:22px;letter-spacing:.12em;color:#cfeef7;
+    text-shadow:0 0 12px rgba(110,200,230,.55), 0 2px 0 #0a2230;
+    margin-bottom:4px;line-height:1.15;
+  }
+  .hud .title .l1{display:block;font-size:24px}
+  .hud .title .l2{display:block;font-size:26px;letter-spacing:.22em;color:#9fd8e6;margin-top:2px}
+  .hud .sub{font-size:10px;color:#6fa6b8;letter-spacing:.32em}
+  .hud .blink{animation:blink 1.2s steps(1,end) infinite;color:#9fd8e6;font-size:11px;letter-spacing:.18em;margin-top:18px}
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  .hud .footer{
+    position:absolute;bottom:14px;left:0;right:0;text-align:center;
+    font-size:8px;color:#2f5a6a;letter-spacing:.3em;
+  }
+  .hud .gameover{
+    font-size:22px;color:#e8b56b;letter-spacing:.22em;
+    text-shadow:0 0 10px rgba(232,150,80,.5);
+    margin-bottom:6px;
+  }
+  .hud .epitaph{
+    font-size:9px;color:#6fa6b8;letter-spacing:.24em;margin-bottom:18px;
+    font-style:italic;
+    max-width:78%;margin-left:auto;margin-right:auto;line-height:1.6;
+  }
+  .hud .stat-row{
+    display:flex;justify-content:center;gap:28px;font-size:10px;color:#9fd8e6;
+    margin-bottom:8px;letter-spacing:.14em;
+  }
+  .hud .stat-row .lbl{color:#3f7889;display:block;font-size:8px;margin-bottom:3px}
+  .hud .hidden{display:none}
+
+  /* on-screen directional buttons (mobile + clickable on desktop) */
+  .ctrl{
+    position:absolute;z-index:10;
+    bottom:5%;width:30%;max-width:130px;aspect-ratio: 1.4 / 1;
+    display:flex;align-items:center;justify-content:center;
+    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+    color:#9fd8e6;
+    font-family:"Silkscreen",monospace;font-size:38px;line-height:1;
+    background:
+      linear-gradient(180deg, rgba(20,60,84,.32), rgba(8,28,44,.55));
+    border:1px solid rgba(120,200,220,.32);
+    border-radius:14px;
+    box-shadow:
+      inset 0 1px 0 rgba(180,230,240,.18),
+      inset 0 -2px 0 rgba(0,0,0,.4),
+      0 6px 20px rgba(0,0,0,.5),
+      0 0 24px rgba(80,180,210,.12);
+    text-shadow:0 0 8px rgba(120,200,230,.55), 0 1px 0 #04121c;
+    cursor:default;
+    transition:transform .08s ease, background .08s ease, border-color .08s ease;
+  }
+  .ctrl.left{left:4%}
+  .ctrl.right{right:4%}
+  .ctrl::before{content:"";position:absolute;inset:4px;border-radius:10px;
+    background:radial-gradient(ellipse at top, rgba(160,220,240,.06), transparent 60%);
+    pointer-events:none}
+  .ctrl[data-active="1"]{
+    background:linear-gradient(180deg, rgba(80,180,210,.45), rgba(40,120,160,.6));
+    border-color:rgba(200,235,245,.7);
+    color:#e8faff;
+    transform:translateY(2px) scale(.98);
+    box-shadow:
+      inset 0 1px 0 rgba(220,250,255,.35),
+      inset 0 -1px 0 rgba(0,0,0,.3),
+      0 2px 8px rgba(0,0,0,.5),
+      0 0 28px rgba(120,210,230,.35);
+  }
+  .ctrl .arrow{display:block;transform:translateY(-1px)}
+  .ctrl .lbl{position:absolute;bottom:6px;left:0;right:0;text-align:center;
+    font-size:8px;letter-spacing:.24em;color:rgba(150,210,230,.55)}
+  /* Hide controls on devices that have a real keyboard (no coarse pointer) */
+  @media (hover:hover) and (pointer:fine){
+    .ctrl{opacity:.0;pointer-events:none}
+  }
+  /* On touch devices the buttons cover the bottom — hide the keyboard hint footer */
+  @media (hover:none), (pointer:coarse){
+    .hud .footer{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <canvas id="game" width="270" height="480"></canvas>
+
+  <!-- HUD over the canvas -->
+  <div class="hud">
+    <div class="top">
+      <div>
+        <div class="lbl">ПУТЬ</div>
+        <div class="val" id="hud-score">0000000</div>
+      </div>
+      <div class="right">
+        <div class="lbl">КУРС</div>
+        <div class="val" id="hud-heading">С · 00°</div>
+      </div>
+    </div>
+
+    <div class="center-msg" id="msg-start">
+      <div class="title"><span class="l1">БАЛТИЙСКИЙ</span><span class="l2">ШТОРМ</span></div>
+      <div class="sub">БАЛТИКА · НОЧЬ · 1986</div>
+      <div class="blink">НАЖМИТЕ ЛЮБУЮ КЛАВИШУ</div>
+    </div>
+
+    <div class="center-msg hidden" id="msg-gameover">
+      <div class="gameover">КРУШЕНИЕ</div>
+      <div class="epitaph">«море возьмёт то, что захочет море.»</div>
+      <div class="stat-row">
+        <div><span class="lbl">ПУТЬ</span><span id="go-dist">0000000</span></div>
+        <div><span class="lbl">РЕКОРД</span><span id="go-best">0000000</span></div>
+      </div>
+      <div class="blink">НАЖМИТЕ R ЧТОБЫ ПЛЫТЬ СНОВА</div>
+    </div>
+
+    <div class="footer">◀ ◁ A · D ▷ ▶ · R ПЕРЕЗАПУСК</div>
+  </div>
+
+  <!-- CRT overlays -->
+  <div class="crt-scan"></div>
+  <div class="crt-bend"></div>
+  <div class="crt-glow"></div>
+  <div class="crt-vignette"></div>
+  <div class="crt-flicker"></div>
+
+  <button class="ctrl left"  id="ctrl-left"  aria-label="Влево">
+    <span class="arrow">◀</span><span class="lbl">ВЛЕВО</span>
+  </button>
+  <button class="ctrl right" id="ctrl-right" aria-label="Вправо">
+    <span class="arrow">▶</span><span class="lbl">ВПРАВО</span>
+  </button>
+</div>
+
+<!-- Tweak defaults -->
+<script>
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "palette": "deep",
+    "rain": 0.7,
+    "fog": 0.55,
+    "lightning": true,
+    "crt": false,
+    "speedMul": 1,
+    "obstacleDensity": 1,
+    "lighthouses": true
+  }/*EDITMODE-END*/;
+  window.GAME_SETTINGS = { ...TWEAK_DEFAULTS };
+</script>
+
+<!-- Game engine -->
+<script>
+/* КОРАБЛЬ — Baltic Night
+   Endless top-down dodger.
+   Internal pixel buffer 256×320, scaled by CSS (image-rendering:pixelated). */
+
+(() => {
+  const W = 270, H = 480;
+  const HORIZON = 132;
+  const SHIP_Y = 373;
+  const SHIP_W = 10, SHIP_H = 14;
+  const CENTER = W / 2;
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  // ───────────────────────── custom images ─────────────────────────
+  const SHIP_IMG_W = 38, SHIP_IMG_H = 46; // rendered size in the pixel buffer
+  const shipImg = new Image();
+  shipImg.src = './ship.png';
+
+  const lighthouseImg = new Image();
+  lighthouseImg.src = './lighthouse.png';
+
+  const mineImg = new Image();
+  mineImg.src = './mine.png';
+
+  const sailorImg = new Image();
+  sailorImg.src = './sailor.png';
+  // Hit-flash tinted version drawn on a temp canvas
+  const shipHitCanvas = document.createElement('canvas');
+  shipHitCanvas.width = SHIP_IMG_W;
+  shipHitCanvas.height = SHIP_IMG_H;
+  shipImg.onload = () => {
+    const hctx = shipHitCanvas.getContext('2d');
+    hctx.imageSmoothingEnabled = false;
+    hctx.drawImage(shipImg, 0, 0, SHIP_IMG_W, SHIP_IMG_H);
+    hctx.globalCompositeOperation = 'source-atop';
+    hctx.fillStyle = 'rgba(255,80,40,0.55)';
+    hctx.fillRect(0, 0, SHIP_IMG_W, SHIP_IMG_H);
+  };
+
+  // ───────────────────────── palette ─────────────────────────
+  // 0..8 = transparent..foam peak; r/R = rust; y/Y = warm lamp; k = deepest black
+  const PALETTES = {
+    deep: {
+      '.': null,
+      '0': '#02060c',
+      '1': '#06121e',
+      '2': '#0d2238',
+      '3': '#1c4762',
+      '4': '#2d6e87',
+      '5': '#4ea1b8',
+      '6': '#8fcedb',
+      '7': '#c8ecf2',
+      '8': '#f0f8fa',
+      'r': '#3a1a10',
+      'R': '#5a2c1c',
+      'y': '#c79653',
+      'Y': '#f4dc9b',
+      'k': '#01030a',
+      // sea tones
+      'sea0': '#020912',
+      'sea1': '#051728',
+      'sea2': '#0a2740',
+      'sea3': '#0e324f',
+      'sky0': '#02060e',
+      'sky1': '#04101c',
+      'sky2': '#082238',
+      'fog':  '#1f4b66',
+    },
+    cyan: {
+      '.': null,
+      '0': '#01080d',
+      '1': '#051820',
+      '2': '#0a2b3a',
+      '3': '#175466',
+      '4': '#2a8497',
+      '5': '#4dbac9',
+      '6': '#92dde4',
+      '7': '#cef0f3',
+      '8': '#f3fafb',
+      'r': '#3a1a10',
+      'R': '#5a2c1c',
+      'y': '#c79653',
+      'Y': '#f4dc9b',
+      'k': '#01060a',
+      'sea0': '#020c14',
+      'sea1': '#04202e',
+      'sea2': '#093746',
+      'sea3': '#0d4658',
+      'sky0': '#020a10',
+      'sky1': '#04161e',
+      'sky2': '#072a36',
+      'fog':  '#1e6b80',
+    },
+    midnight: {
+      '.': null,
+      '0': '#01030a',
+      '1': '#03091a',
+      '2': '#081428',
+      '3': '#15294a',
+      '4': '#264866',
+      '5': '#3f6a8a',
+      '6': '#7aa7c2',
+      '7': '#b8d6e6',
+      '8': '#e8f0f6',
+      'r': '#3a1a10',
+      'R': '#5a2c1c',
+      'y': '#a37344',
+      'Y': '#e8c789',
+      'k': '#00010a',
+      'sea0': '#01040d',
+      'sea1': '#020a18',
+      'sea2': '#061428',
+      'sea3': '#0a1f3a',
+      'sky0': '#000308',
+      'sky1': '#020716',
+      'sky2': '#061226',
+      'fog':  '#152f4a',
+    },
+  };
+
+  let PAL = PALETTES.deep;
+  function setPalette(name){ PAL = PALETTES[name] || PALETTES.deep; bakeAll(); }
+
+  // ───────────────────────── sprite definitions ─────────────────────────
+  // Player ship (10×14), bow pointing up
+  const SHIP_SPRITE = [
+    "....00....",
+    "...0660...",
+    "...0660...",
+    "..033330..",
+    "..030030..",
+    "..033330..",
+    ".03333330.",
+    ".03445330.",
+    ".03455330.",
+    ".03445330.",
+    ".03333330.",
+    "..033330..",
+    "..033330..",
+    "....00....",
+  ];
+
+  // Ship damage state — slightly tilted variant for hit flash
+  const SHIP_HIT = SHIP_SPRITE.map(r => r.replace(/4/g, '5').replace(/3/g, '4'));
+
+  // Rocks
+  const ROCK_S = [
+    "..0000..",
+    ".022320.",
+    "0233320.",
+    "0233330.",
+    "0223320.",
+    ".02220..",
+    "..000...",
+  ];
+  const ROCK_M = [
+    "...00000...",
+    "..0233220..",
+    ".023333320.",
+    "02333343320",
+    "02334433320",
+    "02333333320",
+    ".023333320.",
+    "..02322220.",
+    "...000000..",
+  ];
+  const ROCK_L = [
+    "....0000000....",
+    "...023332220...",
+    "..02333334320..",
+    ".0233334433320.",
+    "02333344443320.",
+    "023333344333320",
+    "023333333333320",
+    ".0233333333320.",
+    "..02333333320..",
+    "...0232222220..",
+    "....00000000...",
+  ];
+
+  // Sea mine — dark sphere + spikes
+  const MINE = [
+    "...0..0...",
+    "..0.00.0..",
+    "..0.11.0..",
+    ".01112110.",
+    "0111212110",
+    "0111222110",
+    "01111111Y0",
+    ".01111110.",
+    "..01110...",
+    "...000....",
+  ];
+
+  // Floating debris — plank
+  const DEBRIS = [
+    "...........",
+    "..0rrrrrr0.",
+    ".0RRRRrrR0.",
+    "..0RRRrR0..",
+    "...000000..",
+  ];
+
+  // Abandoned boat — half-sunken, listing
+  const WRECK = [
+    "..............",
+    "....00....00..",
+    "...0rR0..0rr0.",
+    "..0rRRRrrRR0..",
+    ".0rRRRrrRRRR0.",
+    "0rrRRRrrRRRrr0",
+    ".000000000000.",
+    "..6666666666..",
+    "...8.8.....8..",
+  ];
+
+  // Big wave / foam crest
+  const FOAM_CREST = [
+    "....88....",
+    "..887788..",
+    ".87777678.",
+    "..676665..",
+    "...55....."
+  ];
+
+  const BIG_WAVE = [
+    "....88888888888....",
+    "..8877777777778878.",
+    ".87766666665676678.",
+    "..6555555555555555.",
+    "..4555444444444454.",
+    "...3334444443333...",
+  ];
+
+  // Lighthouse — drawn at horizon, no collision
+  const LIGHTHOUSE = [
+    "..00..",
+    ".0YY0.",
+    ".0YY0.",
+    "0YYYY0",
+    "0000000",
+    "0866680",
+    "0855580",
+    "0855580",
+    "0855580",
+    "0866680",
+    "0500050",
+    "0455540",
+    "0444440",
+    "0444440",
+    "0344430",
+    "0033300",
+  ];
+
+  // ───────────────────────── sprite baking ─────────────────────────
+  const baked = {};
+  function bake(grid, key){
+    const h = grid.length;
+    const w = grid[0].length;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    for (let y = 0; y < h; y++){
+      for (let x = 0; x < w; x++){
+        const ch = grid[y][x];
+        const col = PAL[ch];
+        if (col){
+          g.fillStyle = col;
+          g.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    baked[key] = c;
+    return c;
+  }
+  function bakeAll(){
+    bake(SHIP_SPRITE, 'ship');
+    bake(SHIP_HIT,    'shipHit');
+    bake(ROCK_S,      'rockS');
+    bake(ROCK_M,      'rockM');
+    bake(ROCK_L,      'rockL');
+    bake(MINE,        'mine');
+    bake(DEBRIS,      'debris');
+    bake(WRECK,       'wreck');
+    bake(FOAM_CREST,  'foam');
+    bake(BIG_WAVE,    'bigwave');
+    bake(LIGHTHOUSE,  'lighthouse');
+  }
+
+  function drawSprite(key, x, y, scale = 1, opts = {}){
+    const s = baked[key];
+    if (!s) return;
+    const w = Math.max(1, Math.round(s.width * scale));
+    const h = Math.max(1, Math.round(s.height * scale));
+    const dx = Math.round(x - w / 2);
+    const dy = Math.round(y - h / 2);
+    if (opts.alpha != null){
+      ctx.save(); ctx.globalAlpha = opts.alpha;
+      ctx.drawImage(s, dx, dy, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(s, dx, dy, w, h);
+    }
+  }
+
+  // ───────────────────────── perspective helpers ─────────────────────────
+  function depthY(d){ return HORIZON + d * (SHIP_Y + 18 - HORIZON); }
+  function depthScale(d){ return 0.32 + d * 0.78; }
+  function depthFanHalf(d){ return 34 + d * 108; }   // half-width of "lane" at depth d
+  function depthX(d, xWorld){ return CENTER + xWorld * depthFanHalf(d); }
+
+  // ───────────────────────── world state ─────────────────────────
+  const state = {
+    mode: 'start',        // start | playing | gameover
+    time: 0,
+    dt: 0,
+    speed: 0.11,          // depth units per second
+    targetSpeed: 0.11,
+    distance: 0,
+    best: parseInt(localStorage.getItem('korabl_best') || '0', 10) || 0,
+    ship: { x: CENTER, vx: 0, targetX: CENTER, hitFlash: 0, sway: 0 },
+    obstacles: [],
+    spawnTimer: 0,
+    sailors: [],         // { xWorld, depth, phase, bob, collected, dead }
+    sailorSpawnTimer: 3,
+    scorePopups: [],     // { x, y, text, life, ttl }
+    foam: [],            // { d, xWorld, life, ttl }
+    raindrops: [],
+    rainCap: 80,
+    lightning: { flash: 0, cooldown: 4, bolt: null },
+    lighthouses: [],     // distant background props
+    seaPhase: 0,
+    cameraSway: 0,
+    cameraShake: 0,
+    score: 0,
+    paused: false,
+    started: false,
+  };
+
+  // ───────────────────────── input ─────────────────────────
+  const keys = {};
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (state.mode === 'start' && !e.repeat){ startGame(); }
+    if (state.mode === 'gameover' && (e.code === 'KeyR' || e.code === 'Enter' || e.code === 'Space')){
+      startGame();
+    }
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' ||
+        e.code === 'KeyA' || e.code === 'KeyD' || e.code === 'Space'){
+      e.preventDefault();
+    }
+  });
+  window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+  // On-screen direction buttons (also clickable on desktop).
+  // Each button tracks its own held state via pointer events so that a finger
+  // sliding off the edge cleanly releases, and so two simultaneous touches
+  // (left+right) don't cancel each other.
+  const stageEl = document.getElementById('stage');
+  let btnLeft = 0, btnRight = 0;
+  function bindCtrl(el, setter){
+    const press = (e) => {
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch(_){}
+      el.setAttribute('data-active', '1');
+      setter(1);
+      if (state.mode === 'start' || state.mode === 'gameover') startGame();
+    };
+    const release = (e) => {
+      el.removeAttribute('data-active');
+      setter(0);
+    };
+    el.addEventListener('pointerdown', press);
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+    el.addEventListener('pointerleave', release);
+    // Prevent native button click focus glow
+    el.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  bindCtrl(document.getElementById('ctrl-left'),  v => btnLeft  = v);
+  bindCtrl(document.getElementById('ctrl-right'), v => btnRight = v);
+
+  // Tapping anywhere else on the stage (not on the buttons) also starts the
+  // game from title/gameover screen — useful on touch devices.
+  stageEl.addEventListener('pointerdown', e => {
+    if (e.target.closest('.ctrl')) return;
+    if (state.mode === 'start' || state.mode === 'gameover') startGame();
+  });
+  function touchDir(){ return btnRight - btnLeft; }
+
+  // ───────────────────────── settings hookup ─────────────────────────
+  function readSettings(){
+    const s = window.GAME_SETTINGS || {};
+    setPalette(s.palette || 'deep');
+    document.getElementById('stage').classList.toggle('no-crt', !s.crt);
+    state.rainTarget = Math.round((s.rain != null ? s.rain : 0.7) * 200);
+    state.fog = (s.fog != null ? s.fog : 0.55);
+    state.lightningOn = s.lightning !== false;
+    state.speedMul = s.speedMul != null ? s.speedMul : 1.0;
+    state.densityMul = s.obstacleDensity != null ? s.obstacleDensity : 1.0;
+    state.lighthousesOn = s.lighthouses !== false;
+  }
+  window.__korabl_settings_changed = readSettings;
+  readSettings();
+  bakeAll();
+
+  // ───────────────────────── start / reset ─────────────────────────
+  function startGame(){
+    state.mode = 'playing';
+    state.distance = 0;
+    state.score = 0;
+    state.speed = 0.22;
+    state.targetSpeed = 0.22;
+    state.ship.x = CENTER;
+    state.ship.vx = 0;
+    state.ship.targetX = CENTER;
+    state.ship.hitFlash = 0;
+    state.obstacles.length = 0;
+    state.sailors.length = 0;
+    state.scorePopups.length = 0;
+    state.sailorSpawnTimer = 3;
+    state.foam.length = 0;
+    state.spawnTimer = 0.4;
+    state.lightning.cooldown = 5 + Math.random()*6;
+    state.lightning.flash = 0;
+    state.cameraShake = 0;
+    initLighthouses();
+    document.getElementById('msg-start').classList.add('hidden');
+    document.getElementById('msg-gameover').classList.add('hidden');
+  }
+
+  function gameOver(){
+    state.mode = 'gameover';
+    state.cameraShake = 8;
+    if (state.distance > state.best){
+      state.best = Math.floor(state.distance);
+      localStorage.setItem('korabl_best', state.best);
+    }
+    const go = document.getElementById('msg-gameover');
+    go.classList.remove('hidden');
+    document.getElementById('go-dist').textContent = pad(Math.floor(state.distance), 7);
+    document.getElementById('go-best').textContent = pad(state.best, 7);
+  }
+
+  function initLighthouses(){
+    // Single fixed lighthouse centered on the horizon
+    state.lighthouses = [{ phase: 0, speed: 0.9, active: true }];
+  }
+  initLighthouses();
+
+  // ───────────────────────── obstacles ─────────────────────────
+  const OBSTACLE_TYPES = [
+    { key: 'mine', w: 39, h: 39, weight: 1, hit: 0.62, vy: 0.99, drift: 0.05 },
+  ];
+  const TOTAL_WEIGHT = OBSTACLE_TYPES.reduce((a,b)=>a+b.weight, 0);
+
+  function pickType(){
+    let r = Math.random() * TOTAL_WEIGHT;
+    for (const t of OBSTACLE_TYPES){ if ((r -= t.weight) <= 0) return t; }
+    return OBSTACLE_TYPES[0];
+  }
+
+  function spawnObstacle(){
+    const t = pickType();
+    // place in world space — try to keep lanes free
+    let xWorld;
+    let tries = 0;
+    do {
+      xWorld = (Math.random() * 2 - 1) * 0.95;
+      tries++;
+      // reject if too close to a recent shallow-depth obstacle
+      const tooClose = state.obstacles.some(o => o.depth < 0.35 && Math.abs(o.xWorld - xWorld) < 0.32);
+      if (!tooClose) break;
+    } while (tries < 4);
+
+    state.obstacles.push({
+      type: t,
+      xWorld,
+      depth: 0.01,
+      phase: Math.random() * Math.PI * 2,
+      passed: false,
+      dead: false,
+      bob: Math.random() * 0.5 + 0.5,
+    });
+  }
+
+  function spawnSailor(){
+    const xWorld = (Math.random() * 2 - 1) * 0.85;
+    state.sailors.push({
+      xWorld,
+      depth: 0.01,
+      phase: Math.random() * Math.PI * 2,
+      bob: 0.8 + Math.random() * 0.4,
+      collected: false,
+      dead: false,
+    });
+  }
+
+  // ───────────────────────── update ─────────────────────────
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function update(dt){
+    state.time += dt;
+    state.dt = dt;
+    state.seaPhase += dt * 1.5;
+
+    // rain spawn — even on title screen, for atmosphere
+    while (state.raindrops.length < state.rainTarget){
+      state.raindrops.push(newRain());
+    }
+    if (state.raindrops.length > state.rainTarget){
+      state.raindrops.length = state.rainTarget;
+    }
+    for (const r of state.raindrops){
+      r.x += r.vx * dt;
+      r.y += r.vy * dt;
+      if (r.y > H + 4 || r.x < -8){
+        Object.assign(r, newRain(-12));
+      }
+    }
+
+    // lightning
+    if (state.lightningOn){
+      state.lightning.cooldown -= dt;
+      if (state.lightning.cooldown <= 0){
+        state.lightning.flash = 0.55;
+        state.lightning.bolt = makeBolt();
+        state.lightning.cooldown = 7 + Math.random()*14;
+      }
+      state.lightning.flash *= Math.exp(-dt * 5);
+    } else {
+      state.lightning.flash = 0;
+    }
+
+    // lighthouses pulse phase
+    for (const lh of state.lighthouses){
+      lh.phase += dt * lh.speed * 2;
+    }
+
+    // camera sway (subtle, always on)
+    state.cameraSway = Math.sin(state.time * 0.6) * 1.4 + Math.sin(state.time * 0.21) * 0.8;
+    if (state.cameraShake > 0) state.cameraShake = Math.max(0, state.cameraShake - dt * 14);
+
+    if (state.mode !== 'playing'){
+      // idle drift of pretty obstacles in background
+      return;
+    }
+
+    // ship control
+    let dir = 0;
+    if (keys['ArrowLeft']  || keys['KeyA']) dir -= 1;
+    if (keys['ArrowRight'] || keys['KeyD']) dir += 1;
+    const td = touchDir();
+    if (td) dir = td;
+
+    state.ship.vx += dir * 320 * dt;
+    state.ship.vx *= Math.pow(0.0001, dt);  // strong damping
+    state.ship.x += state.ship.vx * dt;
+    const minX = CENTER - 122, maxX = CENTER + 122;
+    if (state.ship.x < minX){ state.ship.x = minX; state.ship.vx = 0; }
+    if (state.ship.x > maxX){ state.ship.x = maxX; state.ship.vx = 0; }
+    state.ship.sway = state.ship.vx * 0.04;
+    if (state.ship.hitFlash > 0) state.ship.hitFlash -= dt;
+
+    // speed ramp
+    state.targetSpeed = (0.13 + Math.min(0.24, state.distance / 6000)) * state.speedMul;
+    state.speed += (state.targetSpeed - state.speed) * Math.min(1, dt * 0.6);
+
+    state.distance += state.speed * 220 * dt;
+
+    // spawn obstacles
+    state.spawnTimer -= dt;
+    if (state.spawnTimer <= 0){
+      spawnObstacle();
+      // occasionally a tight pair
+      if (Math.random() < 0.04) spawnObstacle();
+      state.spawnTimer = (1.1 - Math.min(0.55, state.distance/8000)) / state.densityMul;
+    }
+
+    // update obstacles
+    for (const o of state.obstacles){
+      o.depth += state.speed * o.type.vy * dt;
+      // gentle horizontal drift for floaters
+      if (o.type.drift) o.xWorld += Math.sin(state.time * 1.2 + o.phase) * o.type.drift * dt;
+
+      // collision check near ship plane
+      if (!o.passed && o.depth >= 0.86 && o.depth <= 0.96){
+        const ox = depthX(o.depth, o.xWorld);
+        const oS = depthScale(o.depth);
+        const oW = o.type.w * oS * o.type.hit;
+        const shipHalf = SHIP_W * 0.45;
+        if (Math.abs(ox - state.ship.x) < (oW * 0.5 + shipHalf)){
+          // hit
+          state.ship.hitFlash = 0.4;
+          state.cameraShake = 7;
+          spawnSplash(state.ship.x, SHIP_Y - 2, 18);
+          gameOver();
+          return;
+        }
+        o.passed = true;
+      }
+      if (o.depth > 1.15) o.dead = true;
+    }
+    state.obstacles = state.obstacles.filter(o => !o.dead);
+
+    // spawn sailors
+    state.sailorSpawnTimer -= dt;
+    if (state.sailorSpawnTimer <= 0){
+      spawnSailor();
+      state.sailorSpawnTimer = 3.5 + Math.random() * 3;
+    }
+
+    // update sailors
+    const SAILOR_W = 18, SAILOR_H = 14;
+    for (const s of state.sailors){
+      s.depth += state.speed * 0.98 * dt;
+      s.xWorld += Math.sin(state.time * 0.9 + s.phase) * 0.018 * dt;
+
+      if (!s.collected && s.depth >= 0.84 && s.depth <= 0.98){
+        const sx = depthX(s.depth, s.xWorld);
+        const sc = depthScale(s.depth);
+        const sw = SAILOR_W * sc * 0.7;
+        if (Math.abs(sx - state.ship.x) < (sw * 0.5 + SHIP_IMG_W * 0.35)){
+          s.collected = true;
+          const bonus = 500;
+          state.distance += bonus;
+          // score popup at collection point
+          const py = depthY(s.depth);
+          state.scorePopups.push({ x: sx, y: py, text: '+500', life: 0, ttl: 1.4 });
+        }
+      }
+      if (s.depth > 1.15 || s.collected) s.dead = true;
+    }
+    state.sailors = state.sailors.filter(s => !s.dead);
+
+    // update score popups
+    for (const p of state.scorePopups) p.life += dt;
+    state.scorePopups = state.scorePopups.filter(p => p.life < p.ttl);
+
+    // foam ripples — random small foam dashes in sea
+    if (Math.random() < dt * 12){
+      state.foam.push({
+        d: 0.05 + Math.random() * 0.95,
+        xWorld: (Math.random() * 2 - 1),
+        life: 0,
+        ttl: 0.4 + Math.random() * 0.6,
+      });
+    }
+    for (const f of state.foam){
+      f.d += state.speed * 0.95 * dt;
+      f.life += dt;
+    }
+    state.foam = state.foam.filter(f => f.life < f.ttl && f.d < 1.15);
+  }
+
+  function newRain(yOverride){
+    return {
+      x: Math.random() * (W + 60) - 20,
+      y: yOverride != null ? yOverride : Math.random() * H,
+      vx: -28,
+      vy: 360 + Math.random() * 110,
+      len: 3 + Math.random() * 4,
+      bright: Math.random() < 0.18,
+    };
+  }
+
+  function makeBolt(){
+    // lightning bolt path, jagged downward
+    const startX = 40 + Math.random() * (W - 80);
+    const segs = [];
+    let x = startX, y = -2;
+    const targetY = HORIZON + Math.random() * 30;
+    while (y < targetY){
+      const ny = y + 4 + Math.random() * 6;
+      const nx = x + (Math.random() * 12 - 6);
+      segs.push([x|0, y|0, nx|0, ny|0]);
+      x = nx; y = ny;
+    }
+    return segs;
+  }
+
+  function spawnSplash(x, y, n){
+    for (let i = 0; i < n; i++){
+      state.foam.push({
+        splash: true,
+        x: x + (Math.random()*8 - 4),
+        y: y + (Math.random()*4 - 2),
+        vx: (Math.random()*2 - 1) * 60,
+        vy: -20 - Math.random() * 60,
+        life: 0,
+        ttl: 0.5 + Math.random() * 0.4,
+      });
+    }
+  }
+
+  // ───────────────────────── render ─────────────────────────
+  function render(){
+    // Camera shake offset
+    const sx = state.cameraShake ? (Math.random() * 2 - 1) * state.cameraShake : 0;
+    const sy = state.cameraShake ? (Math.random() * 2 - 1) * state.cameraShake * 0.5 : 0;
+
+    ctx.save();
+    ctx.translate(Math.round(sx), Math.round(sy));
+
+    drawSky();
+    drawLighthouses();
+    drawFogBand();
+    drawSea();
+    drawFoamField();
+    drawObstacles();
+    drawSailors();
+    drawShip();
+    drawScorePopups();
+    drawSplash();
+    drawRain();
+    drawLightningFlash();
+
+    ctx.restore();
+    // HUD update
+    updateHUD();
+  }
+
+  function drawSky(){
+    // gradient sky: sky0 (top) -> sky2 (near horizon)
+    const top = PAL.sky0, mid = PAL.sky1, low = PAL.sky2;
+    const grad = ctx.createLinearGradient(0, 0, 0, HORIZON);
+    grad.addColorStop(0, top);
+    grad.addColorStop(0.5, mid);
+    grad.addColorStop(1, low);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, HORIZON);
+
+    // a few wispy dark cloud bands
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    const t = state.time * 4;
+    for (let i = 0; i < 5; i++){
+      const y = 10 + i * 12;
+      const off = ((t * (0.4 + i*0.1)) % (W + 60)) - 30;
+      ctx.fillRect(Math.round(-off), y, 80 + i*10, 2);
+      ctx.fillRect(Math.round(W - off - 80), y + 1, 60, 1);
+    }
+  }
+
+  function drawLighthouses(){
+    if (!state.lighthousesOn) return;
+    if (!lighthouseImg.complete || lighthouseImg.naturalWidth === 0) return;
+
+    const lh = state.lighthouses[0];
+    // fixed center, sitting right on the horizon
+    const LH_W = 28, LH_H = 46;
+    const x = Math.round(CENTER - LH_W / 2);
+    const y = HORIZON - LH_H + 4; // base rests on horizon
+
+    // draw the lighthouse image
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(lighthouseImg, x, y, LH_W, LH_H);
+    ctx.restore();
+
+    // rotating lamp pulse — beacon sweep effect
+    const pulse = (Math.sin(lh.phase) + 1) * 0.5;
+    if (pulse > 0.3){
+      const strength = (pulse - 0.3) / 0.7;
+      ctx.save();
+      // lamp glow at top of lighthouse
+      ctx.globalAlpha = strength * 0.9;
+      ctx.fillStyle = '#fffbe0';
+      ctx.fillRect(Math.round(CENTER - 3), y + 3, 6, 4);
+      // wide soft halo spreading outward
+      ctx.globalAlpha = strength * 0.18;
+      ctx.fillStyle = '#ffe8a0';
+      ctx.fillRect(Math.round(CENTER - 22), y, 44, 10);
+      ctx.restore();
+    }
+  }
+
+  function drawFogBand(){
+    const f = state.fog;
+    if (f <= 0) return;
+    // horizontal fog band straddling horizon
+    const bandH = 18;
+    const y0 = HORIZON - 8;
+    const g = ctx.createLinearGradient(0, y0, 0, y0 + bandH);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.5, PAL.fog);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save();
+    ctx.globalAlpha = 0.35 + f * 0.55;
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y0, W, bandH);
+    ctx.restore();
+
+    // extra fog haze layer drifting across
+    ctx.save();
+    ctx.globalAlpha = f * 0.25;
+    ctx.fillStyle = PAL.fog;
+    const drift = (state.time * 6) % W;
+    for (let i = -2; i < 4; i++){
+      const x = i * 80 + drift;
+      ctx.fillRect(Math.round(x), HORIZON - 2, 70, 2);
+      ctx.fillRect(Math.round(x + 20), HORIZON - 4, 40, 1);
+    }
+    ctx.restore();
+  }
+
+  function drawSea(){
+    // base sea fill — vertical gradient from sea1 (top) -> sea3 (bottom)
+    const g = ctx.createLinearGradient(0, HORIZON, 0, H);
+    g.addColorStop(0, PAL.sea1);
+    g.addColorStop(0.4, PAL.sea2);
+    g.addColorStop(1, PAL.sea3);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, HORIZON, W, H - HORIZON);
+
+    // animated wave bands — pseudo perspective
+    // many rows; each row has spaced dashes whose phase shifts with time*speed
+    const bands = 32;
+    for (let i = 0; i < bands; i++){
+      const t = (i + 1) / bands; // 0..1
+      // map t (sea row index) to depth nonlinearly so density bunches near horizon
+      const depth = Math.pow(t, 1.6);
+      const y = HORIZON + Math.round(t * (H - HORIZON));
+      const phase = state.seaPhase * (0.4 + depth * 1.8) + i * 1.3;
+      const dashLen = 2 + Math.round(depth * 6);
+      const spacing = 14 + Math.round((1 - depth) * 30);
+      const brightness = depth;
+
+      // wave dashes
+      const baseAlpha = 0.18 + brightness * 0.55;
+      ctx.fillStyle = brightness > 0.75 ? PAL[6] : (brightness > 0.45 ? PAL[5] : PAL[4]);
+      ctx.globalAlpha = baseAlpha * (state.lightning.flash > 0.2 ? 1.6 : 1);
+      const offset = (phase * 12) % spacing;
+      for (let x = -spacing; x < W + spacing; x += spacing){
+        // wobble x with depth so waves curve slightly
+        const wob = Math.sin(phase * 0.4 + x * 0.04) * 1.5;
+        const px = Math.round(x + offset + wob);
+        ctx.fillRect(px, y, dashLen, 1);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // dark surface ripples — adds depth
+    ctx.fillStyle = PAL.sea0;
+    ctx.globalAlpha = 0.55;
+    for (let i = 0; i < 16; i++){
+      const t = (i + 0.5) / 16;
+      const y = HORIZON + Math.round(t * (H - HORIZON));
+      const phase = state.seaPhase * (0.2 + t * 1.0) + i * 2.7;
+      const off = (phase * 9) % 40;
+      for (let x = -40; x < W; x += 40){
+        const px = Math.round(x + off);
+        ctx.fillRect(px, y + 1, 6 + Math.round(t*4), 1);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFoamField(){
+    // sorted by depth so far is drawn first
+    const list = state.foam.filter(f => !f.splash).sort((a,b) => a.d - b.d);
+    for (const f of list){
+      const y = Math.round(depthY(f.d));
+      const x = Math.round(depthX(f.d, f.xWorld));
+      const scale = depthScale(f.d);
+      const fade = 1 - f.life / f.ttl;
+      ctx.globalAlpha = 0.65 * fade;
+      ctx.fillStyle = scale > 0.7 ? PAL[7] : PAL[6];
+      const len = Math.max(1, Math.round(2 + scale * 4));
+      ctx.fillRect(x - (len>>1), y, len, 1);
+      if (scale > 0.5) ctx.fillRect(x - (len>>1) - 1, y - 1, len + 2, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSplash(){
+    for (const s of state.foam){
+      if (!s.splash) continue;
+      s.x += s.vx * state.dt;
+      s.y += s.vy * state.dt;
+      s.vy += 200 * state.dt;
+      ctx.fillStyle = Math.random() < 0.5 ? PAL[7] : PAL[6];
+      ctx.fillRect(Math.round(s.x), Math.round(s.y), 1, 1);
+    }
+  }
+
+  function drawObstacles(){
+    // sort far-to-near
+    const list = [...state.obstacles].sort((a, b) => a.depth - b.depth);
+    for (const o of list){
+      if (o.depth < 0.01) continue;
+      const y = depthY(o.depth);
+      const x = depthX(o.depth, o.xWorld);
+      const s = depthScale(o.depth);
+      const bob = Math.sin(state.time * 2.3 + o.phase) * (1.4 * o.bob) * s;
+
+      const pw = Math.max(4, Math.round(o.type.w * s));
+      const ph = Math.max(4, Math.round(o.type.h * s));
+      const dx = Math.round(x - pw / 2);
+      const dy = Math.round(y + bob - ph / 2);
+
+      if (mineImg.complete && mineImg.naturalWidth > 0){
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(mineImg, dx, dy, pw, ph);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawSailors(){
+    const SAILOR_IMG_W = 66, SAILOR_IMG_H = 48;
+    const list = [...state.sailors].sort((a, b) => a.depth - b.depth);
+    for (const s of list){
+      if (s.depth < 0.01) continue;
+      const y = depthY(s.depth);
+      const x = depthX(s.depth, s.xWorld);
+      const sc = depthScale(s.depth);
+      const bob = Math.sin(state.time * 1.8 + s.phase) * (1.2 * s.bob) * sc;
+      const pw = Math.max(5, Math.round(SAILOR_IMG_W * sc));
+      const ph = Math.max(4, Math.round(SAILOR_IMG_H * sc));
+      const dx = Math.round(x - pw / 2);
+      const dy = Math.round(y + bob - ph / 2);
+      if (sailorImg.complete && sailorImg.naturalWidth > 0){
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        // subtle golden glow to stand out from mines
+        ctx.shadowColor = '#ffe090';
+        ctx.shadowBlur = Math.round(4 * sc);
+        ctx.drawImage(sailorImg, dx, dy, pw, ph);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawScorePopups(){
+    for (const p of state.scorePopups){
+      const t = p.life / p.ttl;
+      const alpha = t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8;
+      const rise = p.life * 28;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.font = 'bold 7px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffe090';
+      ctx.fillText(p.text, Math.round(p.x), Math.round(p.y - rise));
+      ctx.restore();
+    }
+  }
+
+  function drawShip(){
+    const isHit = state.ship.hitFlash > 0;
+    // wake — foam trail behind ship
+    if (state.mode === 'playing'){
+      ctx.save();
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = PAL[7];
+      for (let i = 0; i < 5; i++){
+        const yy = SHIP_Y + Math.round(SHIP_IMG_H / 2) + 2 + i*2;
+        const w = 5 - i;
+        ctx.fillRect(Math.round(state.ship.x - w/2), yy, w, 1);
+      }
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = PAL[6];
+      ctx.fillRect(Math.round(state.ship.x - 5), SHIP_Y + Math.round(SHIP_IMG_H / 2) + 12, 10, 1);
+      ctx.restore();
+    }
+    // draw custom ship image (centered, with subtle sway bob)
+    const sway = Math.sin(state.time * 3.2) * 0.6;
+    const dx = Math.round(state.ship.x - SHIP_IMG_W / 2);
+    const dy = Math.round(SHIP_Y - SHIP_IMG_H / 2 + sway);
+    if (shipImg.complete && shipImg.naturalWidth > 0){
+      ctx.save();
+      if (isHit) ctx.globalAlpha = 0.85;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(isHit ? shipHitCanvas : shipImg, dx, dy, SHIP_IMG_W, SHIP_IMG_H);
+      ctx.restore();
+    }
+  }
+
+  function drawRain(){
+    ctx.save();
+    for (const r of state.raindrops){
+      ctx.fillStyle = r.bright ? PAL[7] : PAL[5];
+      ctx.globalAlpha = r.bright ? 0.85 : 0.55;
+      const x = Math.round(r.x), y = Math.round(r.y);
+      ctx.fillRect(x, y, 1, Math.round(r.len));
+      // angled extra pixel
+      ctx.fillRect(x - 1, y + Math.round(r.len*0.6), 1, 1);
+    }
+    ctx.restore();
+  }
+
+  function drawLightningFlash(){
+    const f = state.lightning.flash;
+    if (f <= 0.01) return;
+    // bolt visible during peak
+    if (f > 0.35 && state.lightning.bolt){
+      ctx.save();
+      ctx.fillStyle = PAL[8];
+      ctx.globalAlpha = (f - 0.35) / 0.2;
+      for (const [x1, y1, x2, y2] of state.lightning.bolt){
+        bresenhamPx(x1, y1, x2, y2);
+      }
+      ctx.restore();
+    }
+    // global flash overlay (mostly across sky + sea)
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.5, f);
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, 'rgba(220,240,255,1)');
+    g.addColorStop(0.5, 'rgba(120,180,210,0.6)');
+    g.addColorStop(1, 'rgba(80,140,170,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  function bresenhamPx(x1, y1, x2, y2){
+    const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
+    const sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
+    let err = dx - dy;
+    let x = x1, y = y1;
+    while (true){
+      ctx.fillRect(x, y, 1, 1);
+      if (Math.random() < 0.5) ctx.fillRect(x+1, y, 1, 1); // thickness flicker
+      if (x === x2 && y === y2) break;
+      const e2 = err * 2;
+      if (e2 > -dy){ err -= dy; x += sx; }
+      if (e2 < dx){ err += dx; y += sy; }
+    }
+  }
+
+  // ───────────────────────── HUD ─────────────────────────
+  const scoreEl = document.getElementById('hud-score');
+  const headingEl = document.getElementById('hud-heading');
+  function pad(n, w){ const s = String(n|0); return '0'.repeat(Math.max(0, w - s.length)) + s; }
+  function updateHUD(){
+    scoreEl.textContent = pad(Math.floor(state.distance), 7);
+    // heading: oscillating compass
+    const wobble = Math.sin(state.time * 0.7) * 6 + state.ship.vx * 0.02;
+    const deg = ((Math.round(wobble) % 360) + 360) % 360;
+    let dir = 'С';
+    if (deg > 22 && deg < 68) dir = 'СВ';
+    else if (deg >= 68 && deg < 113) dir = 'В';
+    else if (deg >= 293 && deg < 338) dir = 'СЗ';
+    else if (deg > 248 && deg <= 293) dir = 'З';
+    headingEl.textContent = `${dir} · ${pad(deg, 2)}°`;
+  }
+
+  // ───────────────────────── boot ─────────────────────────
+  // start the loop immediately (start screen has its own rain/sea/lighthouses)
+  requestAnimationFrame(now => { last = now; loop(now); });
+
+})();
+
+</script>
+
+</body>
+</html>
